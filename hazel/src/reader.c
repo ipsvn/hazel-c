@@ -63,9 +63,12 @@ uint8_t hazel_message_reader_byte(hazel_message_reader* reader)
 
 int hazel_message_reader_bool(hazel_message_reader* reader, bool* result)
 {
-    uint8_t tmp;
+    uint8_t tmp = 0;
     int ret = hazel_message_reader_uint8(reader, &tmp);
-    *result = tmp != 0;
+    if (ret == 0)
+    {
+        *result = tmp != 0;
+    }
     return ret;
 }
 
