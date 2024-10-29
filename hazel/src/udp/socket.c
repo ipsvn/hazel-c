@@ -1,22 +1,27 @@
 #include "hazel/udp/socket.h"
 
+#ifndef HAZEL_CONFIG_CUSTOM_SOCKET
+
 #include "../utils.h"
 
 #ifdef HAZEL_NET_USE_POLL
 #include <poll.h>
-#else
-
-#if !defined(_WIN32)
-#include <sys/select.h>
 #endif
 
-#endif
 #include <errno.h>
 
-#if defined(_WIN32)
-#include "mswsock.h"
-#include <ws2tcpip.h>
-#include <wspiapi.h>
+#if !defined(_WIN32)
+#   include <sys/socket.h>
+#   include <sys/select.h>
+#   include <arpa/inet.h>
+#   include <unistd.h>
+#   include <netdb.h>
+#   include <fcntl.h>
+#else
+#   include <winsock2.h>
+#   include "mswsock.h"
+#   include <ws2tcpip.h>
+#   include <wspiapi.h>
 #   pragma comment(lib, "Ws2_32.lib")
 #endif
 
@@ -83,10 +88,11 @@ int hazel_udp_socket_close(hazel_udp_socket* socket)
 int hazel_udp_socket_connect(hazel_udp_socket* hazel_socket, const char* hostname, int port)
 {
     int ret = 0;
-    
+    int family = hazel_ip_mode_to_af(hazel_socket->ip_mode);
+
     struct addrinfo hints, *result, *rp;
     memset (&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
+    hints.ai_family = family;
     hints.ai_socktype = SOCK_DGRAM;
 
     if ((ret = getaddrinfo(hostname, NULL, &hints, &result)) != 0) {
@@ -94,28 +100,25 @@ int hazel_udp_socket_connect(hazel_udp_socket* hazel_socket, const char* hostnam
     }
 
     for (rp = result; rp != NULL; rp = rp->ai_next) {
-        if (rp->ai_family == AF_INET) {
-            memcpy(&hazel_socket->_sa_in, rp->ai_addr, 
-                   sizeof(struct sockaddr_in)); 
+        if (rp->ai_family == family) {
             break;
         }
     }
 
-    freeaddrinfo(result);
-
     if (rp == NULL) {
+        freeaddrinfo(result);
         return -1;
     }
 
-    hazel_socket->_sa_in.sin_port = htons(port);
-    if((ret = connect(hazel_socket->_sock_handle, 
-            (const struct sockaddr*) &hazel_socket->_sa_in, 
-            sizeof(struct sockaddr_in))) 
-            != 0) {
-        return ret;
-    }
+    ((struct sockaddr_in *) rp->ai_addr)->sin_port = htons(port);
 
-    return 0;
+    ret = connect(hazel_socket->_sock_handle,
+                  (const struct sockaddr*) rp->ai_addr,
+                  rp->ai_addrlen);
+
+    freeaddrinfo(result);
+
+    return ret;
 
 }
 
@@ -177,3 +180,5 @@ int hazel_udp_socket_send(hazel_udp_socket* socket, uint8_t* buffer, size_t size
 {
     return (int)send(socket->_sock_handle, buffer, size, flags);
 }
+
+#endif

@@ -9,18 +9,6 @@
 
 #include <sys/types.h>
 
-#if !defined(_WIN32)
-#   include <sys/socket.h>
-#   include <arpa/inet.h>
-#   include <unistd.h>
-#   include <netdb.h>
-#   include <fcntl.h>
-#else
-#   include <winsock2.h>
-#   pragma comment(lib, "Ws2_32.lib")
-#endif
-
-
 /** \defgroup UDP UDP
  **/
 
@@ -46,7 +34,6 @@ typedef struct hazel_udp_socket
     enum hazel_ip_mode ip_mode;
 
     int _sock_handle;
-    struct sockaddr_in _sa_in;
 } hazel_udp_socket;
 
 
